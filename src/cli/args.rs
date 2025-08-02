@@ -42,9 +42,13 @@ pub enum RegionCommands {
 
 #[derive(Parser)]
 pub struct DownloadArgs {
-    /// Download the assetbundles
+	/// Download the Android assetbundles
+	#[arg(long)]
+	pub android_assets: bool,
+	
+    /// Download the iOS assetbundles
     #[arg(long)]
-    pub assets: bool,
+    pub ios_assets: bool,
 
     /// Download the tablebundles
     #[arg(long)]

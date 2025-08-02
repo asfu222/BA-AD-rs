@@ -14,7 +14,8 @@ use reqwest::Client;
 use std::rc::Rc;
 
 struct Paths {
-    asset_path: PathBuf,
+    ios_asset_path: PathBuf,
+	android_asset_path: PathBuf,
     table_path: PathBuf,
     media_path: PathBuf,
     game_path: PathBuf,
@@ -38,7 +39,8 @@ impl CatalogParser {
             ServerRegion::Japan =>  data_dir.join("catalog/japan"),
         };
         
-        let asset_path = catalog_dir.join("BundlePackingInfo.json");
+		let android_asset_path = catalog_dir.join("BundlePackingInfo-Android.json");
+        let ios_asset_path = catalog_dir.join("BundlePackingInfo-iOS.json");
         let table_path = catalog_dir.join("TableCatalog.json");
         let media_path = catalog_dir.join("MediaCatalog.json");
         let game_path = catalog_dir.join("GameFiles.json");
@@ -47,12 +49,12 @@ impl CatalogParser {
         Ok(Self {
             client: Client::new(),
             config,
-            paths: Paths { asset_path, table_path, media_path, game_path, resource_path, api_path }
+            paths: Paths { ios_asset_path, android_asset_path, table_path, media_path, game_path, resource_path, api_path }
         })
     }
 
     async fn japan_data(&self, catalog_url: &str) -> Result<()> {
-        let asset_data = self
+		let android_asset_data = self
             .client
             .get(format!("{}/Android_PatchPack/BundlePackingInfo.json", catalog_url))
             .send()
@@ -63,8 +65,24 @@ impl CatalogParser {
             .handle_errors()?;
         
         json::save_json(
-            &self.paths.asset_path,
-            &asset_data
+            &self.paths.android_asset_path,
+            &android_asset_data
+        )
+        .await?;
+		
+		let ios_asset_data = self
+            .client
+            .get(format!("{}/iOS_PatchPack/BundlePackingInfo.json", catalog_url))
+            .send()
+            .await
+            .handle_errors()?
+            .json::<Packing>()
+            .await
+            .handle_errors()?;
+
+		json::save_json(
+            &self.paths.ios_asset_path,
+            &ios_asset_data
         )
         .await?;
 
@@ -115,19 +133,31 @@ impl CatalogParser {
     }
 
     async fn japan_gamefiles(&self, catalog_url: &str) -> Result<()> {
-        let bundle_info: Packing =
-            json::load_json(&self.paths.asset_path).await?;
+		let ios_bundle_info: Packing =
+		    json::load_json(&self.paths.ios_asset_path).await?;
+        let android_bundle_info: Packing =
+            json::load_json(&self.paths.android_asset_path).await?;
         let table_catalog: TableCatalog =
             json::load_json(&self.paths.table_path).await?;
         let media_catalog: MediaCatalog =
             json::load_json(&self.paths.media_path).await?;
 
         let game_resources = GameResources {
-            asset_bundles: bundle_info.full_patch_packs.iter()
-                .chain(bundle_info.update_packs.iter())
+			android_asset_bundles: android_bundle_info.full_patch_packs.iter()
+                .chain(android_bundle_info.update_packs.iter())
                 .map(|patch| GameFiles {
                     url: format!("{}/Android_PatchPack/{}", catalog_url, patch.pack_name),
-                    path: format!("AssetBundles/{}", patch.pack_name),
+                    path: format!("AndroidAssetBundles/{}", patch.pack_name),
+                    hash: HashValue::Crc(patch.crc),
+                    size: patch.pack_size,
+                })
+                .collect(),
+				
+			ios_asset_bundles: ios_bundle_info.full_patch_packs.iter()
+                .chain(ios_bundle_info.update_packs.iter())
+                .map(|patch| GameFiles {
+                    url: format!("{}/iOS_PatchPack/{}", catalog_url, patch.pack_name),
+                    path: format!("iOSAssetBundles/{}", patch.pack_name),
                     hash: HashValue::Crc(patch.crc),
                     size: patch.pack_size,
                 })
@@ -171,9 +201,15 @@ impl CatalogParser {
     }
 
     async fn global_data(&self, resources: &[Resource]) -> Result<()> {
-        let asset_bundles: Vec<Resource> = resources
+        let android_asset_bundles: Vec<Resource> = resources
             .iter()
             .filter(|r| r.resource_path.contains("/Android/"))
+            .cloned()
+            .collect();
+			
+		let ios_asset_bundles: Vec<Resource> = resources
+            .iter()
+            .filter(|r| r.resource_path.contains("/iOS/"))
             .cloned()
             .collect();
 
@@ -183,22 +219,31 @@ impl CatalogParser {
             .cloned()
             .collect();
 
-
         let table_bundles: Vec<Resource> = resources
             .iter()
             .filter(|r| r.resource_path.contains("/TableBundles/"))
             .cloned()
             .collect();
-        
-        if !asset_bundles.is_empty() {
-            let asset_data = AssetBundle { asset_bundles };
+        if !android_asset_bundles.is_empty() {
+            let android_asset_data = AssetBundle { asset_bundles: android_asset_bundles };
             json::save_json(
-                &self.paths.asset_path,
-                &asset_data
+                &self.paths.android_asset_path,
+                &android_asset_data
             )
             .await?;
 
-            success!("Saved AssetBundles catalog");
+            success!("Saved Android AssetBundles catalog");
+        }
+        
+        if !ios_asset_bundles.is_empty() {
+            let ios_asset_data = AssetBundle { asset_bundles: ios_asset_bundles };
+            json::save_json(
+                &self.paths.ios_asset_path,
+                &ios_asset_data
+            )
+            .await?;
+
+            success!("Saved iOS AssetBundles catalog");
         }
 
         if !table_bundles.is_empty() {
@@ -228,10 +273,16 @@ impl CatalogParser {
 
     async fn global_gamefiles(&self, catalog_url: &str, resources: &[Resource]) -> Result<()> {
         let game_resources = GameResources {
-            asset_bundles: resources
+            android_asset_bundles: resources
                 .iter()
                 .filter(|r| r.resource_path.contains("/Android/"))
-                .map(|r| self.resource_to_gamefiles(r, catalog_url, "AssetBundles"))
+                .map(|r| self.resource_to_gamefiles(r, catalog_url, "AndroidAssetBundles"))
+                .collect(),
+
+            ios_asset_bundles: resources
+                .iter()
+                .filter(|r| r.resource_path.contains("/iOS/"))
+                .map(|r| self.resource_to_gamefiles(r, catalog_url, "iOSAssetBundles"))
                 .collect(),
 
             table_bundles: resources

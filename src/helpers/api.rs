@@ -162,7 +162,8 @@ pub struct GameFiles {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct GameResources {
-    pub asset_bundles: Vec<GameFiles>,
+    pub android_asset_bundles: Vec<GameFiles>,
+	pub ios_asset_bundles: Vec<GameFiles>,
     pub table_bundles: Vec<GameFiles>,
     pub media_resources: Vec<GameFiles>,
 }

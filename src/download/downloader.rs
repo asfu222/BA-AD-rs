@@ -11,7 +11,8 @@ use trauma::downloader::{Downloader, DownloaderBuilder, ProgressBarOpts, StyleOp
 
 #[derive(Debug, Clone)]
 pub enum ResourceCategory {
-    Assets,
+    AndroidAssets,
+	iOSAssets,
     Tables,
     Media,
     All,
@@ -46,11 +47,13 @@ impl ResourceDownloader {
 
     fn get_collections<'a>(category: &ResourceCategory, game_resources: &'a GameResources, ) -> Vec<&'a Vec<GameFiles>> {
         match category {
-            ResourceCategory::Assets => vec![&game_resources.asset_bundles],
+			ResourceCategory::AndroidAssets => vec![&game_resources.android_asset_bundles],
+            ResourceCategory::iOSAssets => vec![&game_resources.ios_asset_bundles],
             ResourceCategory::Tables => vec![&game_resources.table_bundles],
             ResourceCategory::Media => vec![&game_resources.media_resources],
             ResourceCategory::All => vec![
-                &game_resources.asset_bundles,
+                &game_resources.android_asset_bundles,
+				&game_resources.ios_asset_bundles,
                 &game_resources.table_bundles,
                 &game_resources.media_resources,
             ],

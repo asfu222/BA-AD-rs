@@ -155,26 +155,31 @@ impl CommandHandler {
     }
 
     fn resource_category(&self, args: &DownloadArgs) -> ResourceCategory {
-        let has_assets = args.assets;
+        let has_android_assets = args.android_assets;
+		let has_ios_assets = args.ios_assets;
         let has_tables = args.tables;
         let has_media = args.media;
 
-        match (has_assets, has_tables, has_media) {
-            (true, false, false) => ResourceCategory::Assets,
-            (false, true, false) => ResourceCategory::Tables,
-            (false, false, true) => ResourceCategory::Media,
-            (true, true, true) => ResourceCategory::All,
-            (false, false, false) => ResourceCategory::All,
-            (true, true, false) => {
-                ResourceCategory::multiple(vec![ResourceCategory::Assets, ResourceCategory::Tables])
-            }
-            (true, false, true) => {
-                ResourceCategory::multiple(vec![ResourceCategory::Assets, ResourceCategory::Media])
-            }
-            (false, true, true) => {
-                ResourceCategory::multiple(vec![ResourceCategory::Tables, ResourceCategory::Media])
-            }
-        }
+		let mut categories = Vec::new();
+
+		if has_android_assets {
+			categories.push(ResourceCategory::AndroidAssets);
+		}
+		if has_ios_assets {
+			categories.push(ResourceCategory::iOSAssets);
+		}
+		if has_tables {
+			categories.push(ResourceCategory::Tables);
+		}
+		if has_media {
+			categories.push(ResourceCategory::Media);
+		}
+
+		match categories.len() {
+			0 => ResourceCategory::All,
+			1 => categories.into_iter().next().unwrap(),
+			_ => ResourceCategory::Multiple(categories),
+		}
     }
 
     fn resource_filter(&self, args: &DownloadArgs) -> Result<Option<ResourceFilter>> {
