@@ -165,7 +165,7 @@ impl ResourceDownloader {
                 filter.is_none_or(|f| Self::matches_filter(f, get_path(file), get_bundles(file)))
             })
             .filter_map(|file| {
-                Self::create_download(get_url(file), get_path(file), get_hash(file), None)
+                Self::create_download(get_url(file), get_path(file), get_hash(file), false)
             })
             .collect()
     }
@@ -223,14 +223,6 @@ impl ResourceDownloader {
         }
     }
 
-    fn convert_path_to_bundle(zip_path: &str, bundle_filename: &str) -> String {
-        if let Some(last_slash) = zip_path.rfind('/') {
-            format!("{}/{}", &zip_path[..last_slash], bundle_filename)
-        } else {
-            bundle_filename.to_string()
-        }
-    }
-
     fn process_japan_assets<R: ResourceFilter>(
         files: &[GameFilesBundles],
         filter: Option<&R>,
@@ -238,12 +230,12 @@ impl ResourceDownloader {
         let Some(f) = filter else {
             return files
                 .iter()
-                .filter_map(|file| Self::create_download(&file.url, &file.path, &file.hash, None))
+                .filter_map(|file| Self::create_download(&file.url, &file.path, &file.hash, false))
                 .collect();
         };
 
         let mut downloads = Vec::new();
-        
+
         for file in files {
             let filename = Path::new(&file.path)
                 .file_name()
@@ -253,20 +245,24 @@ impl ResourceDownloader {
             if f.matches(filename) {
                 Self::add_download(
                     &mut downloads,
-                    Self::create_download(&file.url, &file.path, &file.hash, None)
+                    Self::create_download(&file.url, &file.path, &file.hash, false),
                 );
             }
 
-            for bundle_name in &file.bundle_files {
+            for bundle in &file.bundle_files {
+                let bundle_name = Path::new(&bundle.path)
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or(&bundle.path);
                 if f.matches(bundle_name) {
                     Self::add_download(
                         &mut downloads,
-                        Self::create_download(&file.url, &file.path, &file.hash, Some(bundle_name))
+                        Self::create_download(&file.url, &bundle.path, &bundle.hash, true),
                     );
                 }
             }
         }
-        
+
         downloads
     }
 
@@ -280,25 +276,24 @@ impl ResourceDownloader {
         url: &str,
         path: &str,
         hash: &HashValue,
-        target: Option<&str>,
+        extract_from_zip: bool,
     ) -> Option<Download> {
         let parsed_url = Url::parse(url).ok()?;
         debug!(?parsed_url, "URL");
 
-        let final_path = if let Some(bundle_filename) = target {
-            Self::convert_path_to_bundle(path, bundle_filename)
-        } else {
-            path.to_string()
-        };
-        debug!(?final_path, "Path");
+        debug!(?path, "Path");
 
-        let target_filename = Path::new(&final_path).file_name()?.to_str()?.to_string();
+        let target_filename = Path::new(&path).file_name()?.to_str()?.to_string();
         debug!(?target_filename, "Target");
 
         Some(Download {
             url: parsed_url,
-            filename: final_path,
-            target_file: target.map(|_| target_filename),
+            filename: path.to_string(),
+            target_file: if extract_from_zip {
+                Some(target_filename)
+            } else {
+                None
+            },
             hash: Some(match hash {
                 HashValue::Crc(crc) => crc.to_string(),
                 HashValue::Md5(md5) => md5.clone(),

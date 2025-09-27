@@ -1,5 +1,5 @@
 use crate::helpers::{
-    ApiData, AssetBundle, CatalogError, GameFiles, GameFilesBundles, GlobalCatalog,
+    ApiData, AssetBundle, BundleFile, CatalogError, GameFiles, GameFilesBundles, GlobalCatalog,
     GlobalGameResources, HashValue, JapanGameResources, MediaResources, Platform, Resource,
     ServerConfig, ServerRegion, TableResources,
 };
@@ -143,7 +143,11 @@ impl CatalogParser {
                     bundle_files: patch
                         .bundle_files
                         .iter()
-                        .map(|bundle| bundle.name.clone())
+                        .map(|bundle| BundleFile {
+                            path: format!("AssetBundles/{}", bundle.name),
+                            hash: HashValue::Crc(bundle.crc),
+                            size: bundle.size,
+                        })
                         .collect(),
                 })
                 .collect(),

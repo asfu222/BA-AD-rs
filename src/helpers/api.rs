@@ -1,5 +1,5 @@
-use std::borrow::Cow;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 fn default_platform() -> Cow<'static, str> {
@@ -164,7 +164,6 @@ pub enum HashValue {
     Md5(String),
 }
 
-
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct GameFilesBundles {
@@ -174,7 +173,15 @@ pub struct GameFilesBundles {
     pub size: i64,
 
     #[serde(default)]
-    pub bundle_files: Vec<String>,
+    pub bundle_files: Vec<BundleFile>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct BundleFile {
+    pub path: String,
+    pub hash: HashValue,
+    pub size: i64,
 }
 
 #[derive(Serialize, Deserialize)]
