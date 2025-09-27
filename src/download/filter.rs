@@ -20,14 +20,18 @@ pub enum FilterMethod {
     EndsWith,
 }
 
-pub struct ResourceFilter {
+pub trait ResourceFilter {
+    fn matches(&self, path: &str) -> bool;
+}
+
+pub struct ResourceFilterImpl {
     pattern: String,
     method: FilterMethod,
     compiled_regex: Option<Regex>,
     fuzzy_matcher: Option<Matcher>,
 }
 
-impl ResourceFilter {
+impl ResourceFilterImpl {
     pub fn new(pattern: &str, method: FilterMethod) -> Result<Self, FilterError> {
         let mut compiled_regex = None;
         let mut fuzzy_matcher = None;
@@ -105,8 +109,10 @@ impl ResourceFilter {
             .map(|pattern| pattern.matches(path))
             .unwrap_or(false)
     }
+}
 
-    pub fn matches(&self, path: &str) -> bool {
+impl ResourceFilter for ResourceFilterImpl {
+	fn matches(&self, path: &str) -> bool {
         match self.method {
             FilterMethod::Exact => self.match_exact(path),
             FilterMethod::Contains => self.match_contains(path),
@@ -120,7 +126,7 @@ impl ResourceFilter {
     }
 }
 
-impl ResourceFilter {
+impl ResourceFilterImpl {
     pub fn glob(pattern: &str) -> Result<Self, FilterError> {
         Self::new(pattern, FilterMethod::Glob)
     }

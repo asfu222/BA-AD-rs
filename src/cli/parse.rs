@@ -4,7 +4,7 @@ use crate::cli::args::{
 
 use baad::apk::{ApkExtractor, ApkFetcher};
 use baad::catalog::{CatalogFetcher, CatalogParser};
-use baad::download::{FilterMethod, ResourceCategory, ResourceDownloadBuilder, ResourceFilter};
+use baad::download::{FilterMethod, ResourceCategory, ResourceDownloadBuilder, ResourceFilterImpl};
 use baad::helpers::{ApkError, BuildType, Platform, ServerConfig, ServerRegion};
 
 use baad_core::{file, info};
@@ -219,7 +219,7 @@ impl CommandHandler {
         }
     }
 
-    fn resource_filter(&self, args: &BaseDownloadArgs) -> Result<Option<ResourceFilter>> {
+    fn resource_filter(&self, args: &BaseDownloadArgs) -> Result<Option<ResourceFilterImpl>> {
         let Some(filter_pattern) = &args.filter else {
             if !matches!(args.filter_method, FilterMethod::Contains) {
                 let filter_method_name = format!("{:?}", args.filter_method).to_lowercase();
@@ -232,7 +232,7 @@ impl CommandHandler {
             return Ok(None);
         };
 
-        let filter = ResourceFilter::new(filter_pattern, args.filter_method.clone())?;
+        let filter = ResourceFilterImpl::new(filter_pattern, args.filter_method.clone())?;
         Ok(Some(filter))
     }
 }

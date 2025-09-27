@@ -54,8 +54,8 @@ impl ResourceDownloader {
             .await
     }
 
-    fn matches_filter(
-        filter: &ResourceFilter,
+    fn matches_filter<R: ResourceFilter>(
+        filter: &R,
         path: &str,
         bundle_files: Option<&[String]>,
     ) -> bool {
@@ -103,10 +103,10 @@ impl ResourceDownloader {
         }
     }
 
-    pub async fn download(
+    pub async fn download<R: ResourceFilter>(
         &self,
         category: ResourceCategory,
-        filter: Option<ResourceFilter>,
+        filter: Option<R>,
     ) -> Result<(), DownloadError> {
         match &self.config.region {
             ServerRegion::Global => {
@@ -131,10 +131,10 @@ impl ResourceDownloader {
         }
     }
 
-    fn process_global_files(
+    fn process_global_files<R: ResourceFilter>(
         &self,
         collections: Vec<&Vec<GameFiles>>,
-        filter: Option<ResourceFilter>,
+        filter: Option<R>,
     ) -> Vec<Download> {
         collections
             .into_iter()
@@ -151,9 +151,9 @@ impl ResourceDownloader {
             .collect()
     }
 
-    fn process_files_with_bundles<T>(
+    fn process_files_with_bundles<T, R: ResourceFilter>(
         files: &[T],
-        filter: Option<&ResourceFilter>,
+        filter: Option<&R>,
         get_url: impl Fn(&T) -> &str,
         get_path: impl Fn(&T) -> &str,
         get_hash: impl Fn(&T) -> &HashValue,
@@ -170,11 +170,11 @@ impl ResourceDownloader {
             .collect()
     }
 
-    fn process_japan_files(
+    fn process_japan_files<R: ResourceFilter>(
         &self,
         game_resources: &JapanGameResources,
         _category: &ResourceCategory,
-        _filter: Option<ResourceFilter>,
+        _filter: Option<R>,
     ) -> Vec<Download> {
         let mut downloads = Vec::new();
 
@@ -231,9 +231,9 @@ impl ResourceDownloader {
         }
     }
 
-    fn process_japan_assets(
+    fn process_japan_assets<R: ResourceFilter>(
         files: &[GameFilesBundles],
-        filter: Option<&ResourceFilter>,
+        filter: Option<&R>,
     ) -> Vec<Download> {
         let Some(f) = filter else {
             return files
